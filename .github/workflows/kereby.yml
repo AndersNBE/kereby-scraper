@@ -25,7 +25,7 @@ jobs:
 
     - name: Kør scraper
       run: |
-        python3 Telegramtest.py
+        python3 KerebyNoti.py
 
     - name: Commit opdaterede filer (log og known_urls)
       uses: stefanzweifel/git-auto-commit-action@v4
