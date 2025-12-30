@@ -10,7 +10,6 @@ BASE_URL = "https://kerebyudlejning.dk"
 URL = "https://kerebyudlejning.dk/"
 OUT_HTML = Path("kereby_output.html")
 OUT_CSV = Path("kereby_rentals.csv")   # seneste snapshot
-KNOWN_URLS_FILE = Path("known_urls.txt")
 LOG_CSV = Path("kereby_log.csv")       # historisk log med dato og tid
 
 
@@ -95,58 +94,42 @@ def extract_listings(html: str):
     return listings
 
 
-def load_known_urls():
+def get_logged_urls():
     """
-    Læs kendte URL'er fra known_urls.txt.
-    Returnerer et set af strenge.
-    Hvis filen ikke findes eller er tom, returneres et tomt set.
+    Henter alle URLs der tidligere er logget i kereby_log.csv.
+    Bruges til at afgøre hvad der er nyt.
     """
-    if not KNOWN_URLS_FILE.exists():
+    if not LOG_CSV.exists():
         return set()
 
-    text = KNOWN_URLS_FILE.read_text(encoding="utf-8")
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return set(lines)
-
-
-def save_new_urls(urls):
-    """
-    Appender nye URL'er til known_urls.txt.
-    Opretter filen automatisk hvis den ikke findes.
-    """
-    clean_urls = [u for u in urls if u]
-    if not clean_urls:
-        return
-
-    with KNOWN_URLS_FILE.open("a", encoding="utf-8") as f:
-        for url in clean_urls:
-            f.write(url + "\n")
+    urls = set()
+    with LOG_CSV.open("r", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            url = row.get("url")
+            if url:
+                urls.add(url.strip())
+    return urls
 
 
 def find_new_listings(listings):
     """
-    Finder nye lejligheder i forhold til known_urls.txt.
-    Første gang (ingen fil eller tom fil) behandles alle listings som nye
-    og alle URL'er skrives til known_urls.txt.
-    Efterfølgende kørsler tilføjer kun helt nye URL'er.
+    Finder nye lejligheder i forhold til kereby_log.csv.
+    Alt der IKKE findes i logfilens URL-kolonne betragtes som nyt.
     """
-    # tjek om vi har en brugbar fil med kendte URL'er
-    has_known_file = KNOWN_URLS_FILE.exists() and KNOWN_URLS_FILE.stat().st_size > 0
+    logged = get_logged_urls()
+    new = []
 
-    if not has_known_file:
-        # første run eller tom fil: alt er nyt
-        all_urls = [lst.get("url") for lst in listings if lst.get("url")]
-        save_new_urls(all_urls)
-        print(f"Bootstrap: wrote {len(all_urls)} urls to {KNOWN_URLS_FILE}")
-        return listings
+    for lst in listings:
+        url = lst.get("url")
+        if not url:
+            continue
+        if url in logged:
+            continue
+        new.append(lst)
 
-    known = load_known_urls()
-    new = [lst for lst in listings if lst.get("url") and lst["url"] not in known]
-    new_urls = [lst["url"] for lst in new]
-    save_new_urls(new_urls)
-    print(f"Found {len(new)} new listings in this run")
+    print(f"Fundet {len(new)} nye lejligheder i dette run")
     return new
-
 
 
 def split_city_and_address(location: str):
@@ -229,8 +212,9 @@ def send_ntfy(body: str):
 
 def append_log(listings, timestamp_utc: str):
     """
-    Appender alle aktuelle listings til en logfil
-    med en kolonne for tidspunkt. Bruges til mønsteranalyse.
+    Appender listings til en logfil
+    med en kolonne for tidspunkt.
+    Bruges til mønsteranalyse og til at huske hvad vi har set.
     """
     if not listings:
         return
@@ -297,18 +281,21 @@ def main():
 
     print(f"Skrev {len(listings)} unikke rækker til {OUT_CSV.resolve()}")
 
-    # log alle aktuelle listings med tidspunkt til historisk analyse
-    append_log(listings, timestamp_utc)
-    print(f"Appender {len(listings)} rækker til logfilen {LOG_CSV.resolve()} med timestamp {timestamp_utc}")
-
+    # find kun de lejligheder vi ikke har set før (baseret på kereby_log.csv)
     new_listings = find_new_listings(listings)
 
     if not new_listings:
         print("Ingen nye lejligheder siden sidste kørsel, sender ingen notifikation.")
         return
 
-    selected = new_listings
-    body = build_message_body(selected)
+    # log KUN nye lejligheder med timestamp for første gang vi ser dem
+    append_log(new_listings, timestamp_utc)
+    print(
+        f"Appender {len(new_listings)} nye rækker til logfilen "
+        f"{LOG_CSV.resolve()} med timestamp {timestamp_utc}"
+    )
+
+    body = build_message_body(new_listings)
 
     print("Notifikation indhold:")
     print(body)
