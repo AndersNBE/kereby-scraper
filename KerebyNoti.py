@@ -96,26 +96,57 @@ def extract_listings(html: str):
 
 
 def load_known_urls():
+    """
+    Læs kendte URL'er fra known_urls.txt.
+    Returnerer et set af strenge.
+    Hvis filen ikke findes eller er tom, returneres et tomt set.
+    """
     if not KNOWN_URLS_FILE.exists():
         return set()
-    lines = KNOWN_URLS_FILE.read_text(encoding="utf-8").splitlines()
-    return {line.strip() for line in lines if line.strip()}
+
+    text = KNOWN_URLS_FILE.read_text(encoding="utf-8")
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return set(lines)
 
 
 def save_new_urls(urls):
-    if not urls:
+    """
+    Appender nye URL'er til known_urls.txt.
+    Opretter filen automatisk hvis den ikke findes.
+    """
+    clean_urls = [u for u in urls if u]
+    if not clean_urls:
         return
+
     with KNOWN_URLS_FILE.open("a", encoding="utf-8") as f:
-        for url in urls:
+        for url in clean_urls:
             f.write(url + "\n")
 
 
 def find_new_listings(listings):
+    """
+    Finder nye lejligheder i forhold til known_urls.txt.
+    Første gang (ingen fil eller tom fil) behandles alle listings som nye
+    og alle URL'er skrives til known_urls.txt.
+    Efterfølgende kørsler tilføjer kun helt nye URL'er.
+    """
+    # tjek om vi har en brugbar fil med kendte URL'er
+    has_known_file = KNOWN_URLS_FILE.exists() and KNOWN_URLS_FILE.stat().st_size > 0
+
+    if not has_known_file:
+        # første run eller tom fil: alt er nyt
+        all_urls = [lst.get("url") for lst in listings if lst.get("url")]
+        save_new_urls(all_urls)
+        print(f"Bootstrap: wrote {len(all_urls)} urls to {KNOWN_URLS_FILE}")
+        return listings
+
     known = load_known_urls()
-    new = [lst for lst in listings if lst["url"] not in known]
+    new = [lst for lst in listings if lst.get("url") and lst["url"] not in known]
     new_urls = [lst["url"] for lst in new]
     save_new_urls(new_urls)
+    print(f"Found {len(new)} new listings in this run")
     return new
+
 
 
 def split_city_and_address(location: str):
