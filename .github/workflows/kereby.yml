@@ -1,0 +1,37 @@
+name: Kereby Scraper
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # kør hver 10. minut
+  workflow_dispatch:         # mulighed for manuel kørsel i Actions
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Hent kode
+      uses: actions/checkout@v3
+
+    - name: Installer Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Installer afhængigheder
+      run: |
+        pip install -r requirements.txt
+        playwright install --with-deps chromium
+
+    - name: Kør scraper
+      run: |
+        python3 Telegramtest.py
+
+    - name: Commit opdaterede filer (log og known_urls)
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "Auto-update fra GitHub Actions"
+        file_pattern: |
+          kereby_log.csv
+          known_urls.txt
+          kereby_rentals.csv
