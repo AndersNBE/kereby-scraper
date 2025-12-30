@@ -160,17 +160,6 @@ def split_city_and_address(location: str):
 
 
 def build_message_body(new_listings):
-    """
-    Format for hver lejlighed:
-
-    København S
-    Værelser: 3
-    Pris: 13895 kr/md
-    Adresse: Drogdensgade 5, 1. tv 2300
-    Link: ...
-
-    tom linje mellem lejligheder
-    """
     parts = []
     for listing in new_listings:
         location = listing.get("location") or ""
@@ -184,7 +173,7 @@ def build_message_body(new_listings):
         line2 = f"Værelser: {rooms if rooms is not None else '?'}"
         line3 = f"Pris: {price} kr/md" if price is not None else "Pris: ukendt"
         line4 = f"Adresse: {address if address else 'Ukendt adresse'}"
-        line5 = f"Link: {url}"
+        line5 = url  # ← gør linket klikbart (står alene)
 
         parts.append("\n".join([line1, line2, line3, line4, line5]))
 
