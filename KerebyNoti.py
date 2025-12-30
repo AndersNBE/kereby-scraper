@@ -181,22 +181,36 @@ def build_message_body(new_listings):
 
 
 def send_ntfy(body: str):
-    """
-    Sender en notifikation til ntfy emnet 'kereby-anders'.
-    Du har appen til at lytte på dette emne.
-    """
+    # Forsøg at udtrække det første link
+    first_link = None
+    for line in body.splitlines():
+        if line.startswith("http"):
+            first_link = line.strip()
+            break
+
+    headers = {
+        "Title": "Ny Kereby-lejlighed 🏠",
+        "Priority": "high",
+    }
+
+    # Hvis vi fandt et link, gør notifikationen klikbar
+    if first_link:
+        headers["Click"] = first_link
+
     try:
         resp = requests.post(
             "https://ntfy.sh/kereby-anders",
+            headers=headers,
             data=body.encode("utf-8"),
             timeout=10,
         )
         if resp.status_code != 200:
             print("Fejl ved ntfy:", resp.status_code, resp.text[:200])
         else:
-            print("ntfy besked sendt.")
+            print("ntfy besked sendt med klikbart link.")
     except Exception as e:
         print("Undtagelse ved ntfy:", e)
+
 
 
 def append_log(listings, timestamp_utc: str):
