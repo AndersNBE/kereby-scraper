@@ -200,7 +200,7 @@ def send_ntfy(body: str):
             break
 
     headers = {
-        "Title": "Ny Kereby lejlighed 🏠",
+        "Title": "Ny Kereby lejlighed",
         "Priority": "high",
         "User-Agent": "kereby-scraper/1.0 (github-actions)",
     }
