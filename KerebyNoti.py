@@ -100,17 +100,19 @@ def get_logged_urls():
     Bruges til at afgøre hvad der er nyt.
     """
     if not LOG_CSV.exists():
+        print("Logfil findes ikke endnu, 0 logged urls")
         return set()
 
     urls = set()
-    with LOG_CSV.open("r", encoding="utf-8") as f:
+    with LOG_CSV.open("r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            url = row.get("url")
+            url = (row.get("url") or "").strip()
             if url:
-                urls.add(url.strip())
-    return urls
+                urls.add(url)
 
+    print(f"Loggen indeholder {len(urls)} urls")
+    return urls
 
 def find_new_listings(listings):
     """
@@ -118,10 +120,15 @@ def find_new_listings(listings):
     Alt der IKKE findes i logfilens URL-kolonne betragtes som nyt.
     """
     logged = get_logged_urls()
-    new = []
 
+    logged_sample = list(sorted(logged))[:10]
+    print("Eksempel på logged urls (maks 10):")
+    for u in logged_sample:
+        print(" -", u)
+
+    new = []
     for lst in listings:
-        url = lst.get("url")
+        url = (lst.get("url") or "").strip()
         if not url:
             continue
         if url in logged:
@@ -129,6 +136,11 @@ def find_new_listings(listings):
         new.append(lst)
 
     print(f"Fundet {len(new)} nye lejligheder i dette run")
+    if new:
+        print("Nye urls (maks 10):")
+        for u in [x["url"] for x in new[:10]]:
+            print(" -", u)
+
     return new
 
 
@@ -181,7 +193,6 @@ def build_message_body(new_listings):
 
 
 def send_ntfy(body: str):
-    # Forsøg at udtrække det første link
     first_link = None
     for line in body.splitlines():
         if line.startswith("http"):
@@ -189,27 +200,26 @@ def send_ntfy(body: str):
             break
 
     headers = {
-        "Title": "Ny Kereby-lejlighed 🏠",
+        "Title": "Ny Kereby lejlighed 🏠",
         "Priority": "high",
+        "User-Agent": "kereby-scraper/1.0 (github-actions)",
     }
-
-    # Hvis vi fandt et link, gør notifikationen klikbar
     if first_link:
         headers["Click"] = first_link
 
-    try:
-        resp = requests.post(
-            "https://ntfy.sh/kereby-anders",
-            headers=headers,
-            data=body.encode("utf-8"),
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            print("Fejl ved ntfy:", resp.status_code, resp.text[:200])
-        else:
-            print("ntfy besked sendt med klikbart link.")
-    except Exception as e:
-        print("Undtagelse ved ntfy:", e)
+    resp = requests.post(
+        "https://ntfy.sh/kereby-anders",
+        headers=headers,
+        data=body.encode("utf-8"),
+        timeout=20,
+    )
+
+    print("ntfy status:", resp.status_code)
+    if resp.status_code != 200:
+        print("ntfy response (første 300 tegn):", (resp.text or "")[:300])
+        raise RuntimeError(f"ntfy returnerede {resp.status_code}")
+
+    print("ntfy besked sendt.")
 
 
 
