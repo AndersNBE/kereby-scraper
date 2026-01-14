@@ -44,3 +44,5 @@ timestamp_utc,url,headline,location,status,rent_kr_per_month,rooms,sqm
       København S",Reserveret,10318,3,67
 2026-01-13T13:00:38.097506+00:00,https://kerebyudlejning.dk/bolig/nygardsvej-16b-st-2-2100-kobenhavn,,"Nygårdsvej 16B, st. 2 2100
       København Ø",Reserveret,8000,1,32
+2026-01-14T13:26:58.073144+00:00,https://kerebyudlejning.dk/bolig/vesterbrogade-134-2-1620-kobenhavn-v,6-værelses lejlighed på Vesterbro,"Vesterbrogade 134, 2. 1620
+      København V",,30740,6,198
