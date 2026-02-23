@@ -118,3 +118,5 @@ timestamp_utc,url,headline,location,status,rent_kr_per_month,rooms,sqm
       København S",Reserveret,14555,3,93
 2026-02-20T12:01:55.561571+00:00,https://kerebyudlejning.dk/bolig/viborggade-19-3-th-2100-kobenhavn,3-værelses lejlighed på Østerbro,"Viborggade 19, 3. th 2100
       København Ø",Reserveret,14385,3,90
+2026-02-23T14:13:25.934250+00:00,https://kerebyudlejning.dk/bolig/norrebrogade-201a-3-tv-2200-kobenhavn-n,4-værelses lejlighed på Nørrebro,"Nørrebrogade 201A, 3. tv 2200
+      København N",Reserveret,15460,4,98
