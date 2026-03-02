@@ -128,3 +128,5 @@ timestamp_utc,url,headline,location,status,rent_kr_per_month,rooms,sqm
       Frederiksberg",Reserveret,15058,3,93
 2026-02-26T11:39:21.440056+00:00,https://kerebyudlejning.dk/bolig/marievej-2-3-th-2900-hellerup,4-værelses lejlighed i Hellerup,"Marievej 2, 3. th 2900
       Hellerup",,17765,4,110
+2026-03-02T13:19:31.940183+00:00,https://kerebyudlejning.dk/bolig/sverrigsgade-11-2-th-2300-kobenhavn-s,3-værelses lejlighed på Amager,"Sverrigsgade 11, 2. th 2300
+      København S",Reserveret,8376,3,58
