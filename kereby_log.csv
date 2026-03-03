@@ -132,3 +132,5 @@ timestamp_utc,url,headline,location,status,rent_kr_per_month,rooms,sqm
       København S",Reserveret,8376,3,58
 2026-03-03T09:04:41.433005+00:00,https://kerebyudlejning.dk/bolig/strandboulevarden-61-1-tv-2100-kobenhavn,Istandsat 4-værelses på Østerbro,"Strandboulevarden 61, 1. tv 2100
       København Ø",Reserveret,15264,3,96
+2026-03-03T13:37:06.813361+00:00,https://kerebyudlejning.dk/bolig/norrebrogade-176-4-th-2200-kobenhavn-n,Istandsat 6-værelses med altan på Nørrebro,"Nørrebrogade 176, 4. th 2200
+      København N",,30617,6,167
