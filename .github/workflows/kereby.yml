@@ -1,9 +1,7 @@
 name: Kereby Scraper
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"   # kør hver 10. minut
-  workflow_dispatch:         # mulighed for manuel kørsel i Actions
+  workflow_dispatch:   # trigges af cron-job.org hvert minut
 
 jobs:
   scrape:
@@ -18,16 +16,34 @@ jobs:
       with:
         python-version: "3.11"
 
+    - name: Cache pip pakker
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: pip-${{ hashFiles('requirements.txt') }}
+
+    - name: Cache Playwright browser
+      id: playwright-cache
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-chromium-${{ hashFiles('requirements.txt') }}
+
     - name: Installer afhængigheder
-      run: |
-        pip install -r requirements.txt
-        playwright install --with-deps chromium
+      run: pip install -r requirements.txt
+
+    - name: Installer Playwright browser (kun hvis ikke cachet)
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: playwright install --with-deps chromium
+
+    - name: Installer Playwright systemafhængigheder (altid)
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      run: playwright install-deps chromium
 
     - name: Kør scraper
-      run: |
-        python3 KerebyNoti.py
+      run: python3 KerebyNoti.py
 
-    - name: Commit opdaterede filer (log og known_urls)
+    - name: Commit opdaterede filer
       uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_message: "Auto-update fra GitHub Actions"
@@ -35,3 +51,4 @@ jobs:
           kereby_log.csv
           known_urls.txt
           kereby_rentals.csv
+          kereby_metrics.csv

@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import csv
 import re
+import time
 import requests
 
 BASE_URL = "https://kerebyudlejning.dk"
@@ -11,6 +12,7 @@ URL = "https://kerebyudlejning.dk/"
 OUT_HTML = Path("kereby_output.html")
 OUT_CSV = Path("kereby_rentals.csv")   # seneste snapshot
 LOG_CSV = Path("kereby_log.csv")       # historisk log med dato og tid
+METRICS_CSV = Path("kereby_metrics.csv")  # run-metrics til flaskehalssøgning
 
 
 def parse_int_from(text: str):
@@ -222,7 +224,6 @@ def send_ntfy(body: str):
     print("ntfy besked sendt.")
 
 
-
 def append_log(listings, timestamp_utc: str):
     """
     Appender listings til en logfil
@@ -263,16 +264,39 @@ def append_log(listings, timestamp_utc: str):
             writer.writerow(row)
 
 
+def append_metrics(row: dict):
+    file_exists = METRICS_CSV.exists()
+    fieldnames = [
+        "run_start_utc",
+        "scrape_duration_s",
+        "total_listings_on_site",
+        "new_listings",
+        "new_already_reserved",
+        "new_available",
+        "notification_sent",
+        "notification_timestamp_utc",
+        "total_duration_s",
+    ]
+    with METRICS_CSV.open("a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+
 def main():
-    # tidspunkt i utc for denne kørsel
+    run_start = time.monotonic()
     timestamp_utc = datetime.now(timezone.utc).isoformat()
 
+    # ── scrape ────────────────────────────────────────────────────────────────
+    scrape_start = time.monotonic()
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
         page.goto(URL, wait_until="networkidle")
         html = page.content()
         browser.close()
+    scrape_duration = round(time.monotonic() - scrape_start, 2)
 
     OUT_HTML.write_text(html, encoding="utf-8")
 
@@ -294,18 +318,35 @@ def main():
 
     print(f"Skrev {len(listings)} unikke rækker til {OUT_CSV.resolve()}")
 
-    # find kun de lejligheder vi ikke har set før (baseret på kereby_log.csv)
+    # ── nye lejligheder ───────────────────────────────────────────────────────
     new_listings = find_new_listings(listings)
+
+    new_reserved = [l for l in new_listings if (l.get("status") or "").strip()]
+    new_available = [l for l in new_listings if not (l.get("status") or "").strip()]
+
+    metrics = {
+        "run_start_utc": timestamp_utc,
+        "scrape_duration_s": scrape_duration,
+        "total_listings_on_site": len(listings),
+        "new_listings": len(new_listings),
+        "new_already_reserved": len(new_reserved),
+        "new_available": len(new_available),
+        "notification_sent": False,
+        "notification_timestamp_utc": "",
+        "total_duration_s": "",
+    }
 
     if not new_listings:
         print("Ingen nye lejligheder siden sidste kørsel, sender ingen notifikation.")
+        metrics["total_duration_s"] = round(time.monotonic() - run_start, 2)
+        append_metrics(metrics)
         return
 
-    # log KUN nye lejligheder med timestamp for første gang vi ser dem
+    # ── log nye ───────────────────────────────────────────────────────────────
     append_log(new_listings, timestamp_utc)
     print(
         f"Appender {len(new_listings)} nye rækker til logfilen "
-        f"{LOG_CSV.resolve()} med timestamp {timestamp_utc}"
+        f"({len(new_reserved)} allerede reserverede, {len(new_available)} ledige)"
     )
 
     body = build_message_body(new_listings)
@@ -314,6 +355,11 @@ def main():
     print(body)
 
     send_ntfy(body)
+
+    metrics["notification_sent"] = True
+    metrics["notification_timestamp_utc"] = datetime.now(timezone.utc).isoformat()
+    metrics["total_duration_s"] = round(time.monotonic() - run_start, 2)
+    append_metrics(metrics)
 
 
 if __name__ == "__main__":
