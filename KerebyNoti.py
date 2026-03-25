@@ -264,6 +264,67 @@ def append_log(listings, timestamp_utc: str):
             writer.writerow(row)
 
 
+def load_previous_snapshot() -> dict:
+    """Returnerer {url: status} fra forrige kereby_rentals.csv inden den overskrives."""
+    if not OUT_CSV.exists():
+        return {}
+    snapshot = {}
+    with OUT_CSV.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            url = (row.get("url") or "").strip()
+            if url:
+                snapshot[url] = (row.get("status") or "").strip()
+    return snapshot
+
+
+def find_relisted(listings: list, previous_snapshot: dict) -> list:
+    """
+    Finder lejligheder der var reserverede/udlejede i forrige run
+    men nu er ledige igen (tom status).
+    """
+    relisted = []
+    for lst in listings:
+        url = (lst.get("url") or "").strip()
+        if not url:
+            continue
+        prev_status = previous_snapshot.get(url)
+        if prev_status is None:
+            continue  # ikke set før — håndteres af find_new_listings
+        current_status = (lst.get("status") or "").strip()
+        if prev_status and not current_status:
+            relisted.append(lst)
+    return relisted
+
+
+def send_ntfy_relisted(body: str):
+    first_link = None
+    for line in body.splitlines():
+        if line.startswith("http"):
+            first_link = line.strip()
+            break
+
+    headers = {
+        "Title": "Lejlighed ledig igen!",
+        "Priority": "urgent",
+        "Tags": "rotating_light",
+        "User-Agent": "kereby-scraper/1.0 (github-actions)",
+    }
+    if first_link:
+        headers["Click"] = first_link
+
+    resp = requests.post(
+        "https://ntfy.sh/kereby-anders",
+        headers=headers,
+        data=body.encode("utf-8"),
+        timeout=20,
+    )
+
+    print("ntfy relisted status:", resp.status_code)
+    if resp.status_code != 200:
+        raise RuntimeError(f"ntfy returnerede {resp.status_code}")
+
+
 def append_metrics(row: dict):
     file_exists = METRICS_CSV.exists()
     fieldnames = [
@@ -287,6 +348,9 @@ def append_metrics(row: dict):
 def main():
     run_start = time.monotonic()
     timestamp_utc = datetime.now(timezone.utc).isoformat()
+
+    # ── læs gammelt snapshot inden vi overskriver ─────────────────────────────
+    previous_snapshot = load_previous_snapshot()
 
     # ── scrape ────────────────────────────────────────────────────────────────
     scrape_start = time.monotonic()
@@ -335,6 +399,15 @@ def main():
         "notification_timestamp_utc": "",
         "total_duration_s": "",
     }
+
+    # ── lejligheder ledig igen ────────────────────────────────────────────────
+    relisted = find_relisted(listings, previous_snapshot)
+    if relisted:
+        print(f"{len(relisted)} lejlighed(er) er ledig igen:")
+        for l in relisted:
+            print(f"  - {l['url']}")
+        append_log(relisted, timestamp_utc)
+        send_ntfy_relisted(build_message_body(relisted))
 
     if not new_listings:
         print("Ingen nye lejligheder siden sidste kørsel, sender ingen notifikation.")
