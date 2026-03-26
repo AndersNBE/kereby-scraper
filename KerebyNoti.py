@@ -208,22 +208,29 @@ def send_ntfy(body: str):
         "Priority": "high",
         "User-Agent": "kereby-scraper/1.0 (github-actions)",
     }
+
     if first_link:
         headers["Click"] = first_link
 
-    resp = requests.post(
-        "https://ntfy.sh/{NTFY_TOPIC}",
-        headers=headers,
-        data=body.encode("utf-8"),
-        timeout=20,
-    )
+    try:
+        resp = requests.post(
+            f"https://ntfy.sh/{NTFY_TOPIC}",
+            headers=headers,
+            data=body.encode("utf-8"),
+            timeout=20,
+        )
+        print("ntfy status:", resp.status_code)
 
-    print("ntfy status:", resp.status_code)
-    if resp.status_code != 200:
-        print("ntfy response (første 300 tegn):", (resp.text or "")[:300])
-        raise RuntimeError(f"ntfy returnerede {resp.status_code}")
+        if resp.status_code != 200:
+            print("ntfy response, første 300 tegn:", (resp.text or "")[:300])
+            return False
 
-    print("ntfy besked sendt.")
+        print("ntfy besked sendt.")
+        return True
+
+    except requests.RequestException as e:
+        print(f"ntfy request fejlede: {e}")
+        return False
 
 
 def append_log(listings, timestamp_utc: str):
@@ -312,19 +319,29 @@ def send_ntfy_relisted(body: str):
         "Tags": "rotating_light",
         "User-Agent": "kereby-scraper/1.0 (github-actions)",
     }
+
     if first_link:
         headers["Click"] = first_link
 
-    resp = requests.post(
-        "https://ntfy.sh/{NTFY_TOPIC}",
-        headers=headers,
-        data=body.encode("utf-8"),
-        timeout=20,
-    )
+    try:
+        resp = requests.post(
+            f"https://ntfy.sh/{NTFY_TOPIC}",
+            headers=headers,
+            data=body.encode("utf-8"),
+            timeout=20,
+        )
+        print("ntfy relisted status:", resp.status_code)
 
-    print("ntfy relisted status:", resp.status_code)
-    if resp.status_code != 200:
-        raise RuntimeError(f"ntfy returnerede {resp.status_code}")
+        if resp.status_code != 200:
+            print("ntfy relisted response, første 300 tegn:", (resp.text or "")[:300])
+            return False
+
+        print("ntfy relisted besked sendt.")
+        return True
+
+    except requests.RequestException as e:
+        print(f"ntfy relisted request fejlede: {e}")
+        return False
 
 
 def append_metrics(row: dict):
@@ -409,7 +426,8 @@ def main():
         for l in relisted:
             print(f"  - {l['url']}")
         append_log(relisted, timestamp_utc)
-        send_ntfy_relisted(build_message_body(relisted))
+        relisted_sent = send_ntfy_relisted(build_message_body(relisted))
+        print("relisted notifikation sendt:", relisted_sent)
 
     if not new_listings:
         print("Ingen nye lejligheder siden sidste kørsel, sender ingen notifikation.")
@@ -429,10 +447,11 @@ def main():
     print("Notifikation indhold:")
     print(body)
 
-    send_ntfy(body)
-
-    metrics["notification_sent"] = True
-    metrics["notification_timestamp_utc"] = datetime.now(timezone.utc).isoformat()
+    notification_sent = send_ntfy(body)
+    metrics["notification_sent"] = notification_sent
+    
+    if notification_sent:
+        metrics["notification_timestamp_utc"] = datetime.now(timezone.utc).isoformat()
     metrics["total_duration_s"] = round(time.monotonic() - run_start, 2)
     append_metrics(metrics)
 
