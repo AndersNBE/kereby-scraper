@@ -1,56 +1,57 @@
 name: Kereby Scraper
 
 on:
-  workflow_dispatch:   # trigges af cron-job.org hvert minut
+  workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-    - name: Hent kode
-      uses: actions/checkout@v3
+      - name: Hent kode
+        uses: actions/checkout@v4
 
-    - name: Installer Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Cache pip pakker
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: pip-${{ hashFiles('requirements.txt') }}
+      - name: Cache pip pakker
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
-    - name: Cache Playwright browser
-      id: playwright-cache
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-chromium-${{ hashFiles('requirements.txt') }}
+      - name: Cache Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
-    - name: Installer afhængigheder
-      run: pip install -r requirements.txt
+      - name: Installer afhængigheder
+        run: pip install -r requirements.txt
 
-    - name: Installer Playwright browser (kun hvis ikke cachet)
-      if: steps.playwright-cache.outputs.cache-hit != 'true'
-      run: playwright install --with-deps chromium
+      - name: Installer Playwright browser, kun hvis ikke cachet
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: playwright install --with-deps chromium
 
-    - name: Installer Playwright systemafhængigheder (altid)
-      if: steps.playwright-cache.outputs.cache-hit == 'true'
-      run: playwright install-deps chromium
+      - name: Installer Playwright systemafhængigheder, altid når browser er cachet
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
 
-    - name: Kør scraper
-      env:
-        NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-      run: python3 KerebyNoti.py
+      - name: Kør scraper
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python KerebyNoti.py
 
-    - name: Commit opdaterede filer
-      uses: stefanzweifel/git-auto-commit-action@v4
-      with:
-        commit_message: "Auto-update fra GitHub Actions"
-        file_pattern: |
-          kereby_log.csv
-          known_urls.txt
-          kereby_rentals.csv
-          kereby_metrics.csv
+      - name: Commit opdaterede filer
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Auto-update fra GitHub Actions"
+          file_pattern: |
+            kereby_log.csv
+            kereby_rentals.csv
+            kereby_metrics.csv
