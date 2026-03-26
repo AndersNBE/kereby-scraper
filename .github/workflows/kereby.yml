@@ -41,6 +41,8 @@ jobs:
       run: playwright install-deps chromium
 
     - name: Kør scraper
+      env:
+        NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
       run: python3 KerebyNoti.py
 
     - name: Commit opdaterede filer

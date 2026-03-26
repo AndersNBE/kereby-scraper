@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from pathlib import Path
 from datetime import datetime, timezone
 import csv
+import os
 import re
 import time
 import requests
@@ -13,6 +14,7 @@ OUT_HTML = Path("kereby_output.html")
 OUT_CSV = Path("kereby_rentals.csv")   # seneste snapshot
 LOG_CSV = Path("kereby_log.csv")       # historisk log med dato og tid
 METRICS_CSV = Path("kereby_metrics.csv")  # run-metrics til flaskehalssøgning
+NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "kereby-anders")
 
 
 def parse_int_from(text: str):
@@ -210,7 +212,7 @@ def send_ntfy(body: str):
         headers["Click"] = first_link
 
     resp = requests.post(
-        "https://ntfy.sh/kereby-anders",
+        "https://ntfy.sh/{NTFY_TOPIC}",
         headers=headers,
         data=body.encode("utf-8"),
         timeout=20,
@@ -314,7 +316,7 @@ def send_ntfy_relisted(body: str):
         headers["Click"] = first_link
 
     resp = requests.post(
-        "https://ntfy.sh/kereby-anders",
+        "https://ntfy.sh/{NTFY_TOPIC}",
         headers=headers,
         data=body.encode("utf-8"),
         timeout=20,
